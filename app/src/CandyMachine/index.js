@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { Program, Provider, web3 } from '@project-serum/anchor';
 import { MintLayout, TOKEN_PROGRAM_ID, Token } from '@solana/spl-token';
@@ -20,6 +20,7 @@ const opts = {
 };
 
 const CandyMachine = ({ walletAddress }) => {
+  const [candyMachine, setCandyMachine] = useState(null);
 
   const getCandyMachineCreator = async (candyMachine) => {
     const candyMachineID = new PublicKey(candyMachine);
@@ -93,11 +94,11 @@ const CandyMachine = ({ walletAddress }) => {
       await getAtaForMint(mint.publicKey, walletAddress.publicKey)
     )[0];
   
-    const userPayingAccountAddress = candyMachine.state.tokenMint
-      ? (await getAtaForMint(candyMachine.state.tokenMint, walletAddress.publicKey))[0]
+    const userPayingAccountAddress = CandyMachine.state.tokenMint
+      ? (await getAtaForMint(CandyMachine.state.tokenMint, walletAddress.publicKey))[0]
       : walletAddress.publicKey;
   
-    const candyMachineAddress = candyMachine.id;
+    const candyMachineAddress = CandyMachine.id;
     const remainingAccounts = [];
     const signers = [mint];
     const cleanupInstructions = [];
@@ -107,7 +108,7 @@ const CandyMachine = ({ walletAddress }) => {
         newAccountPubkey: mint.publicKey,
         space: MintLayout.span,
         lamports:
-          await candyMachine.program.provider.connection.getMinimumBalanceForRentExemption(
+          await CandyMachine.program.provider.connection.getMinimumBalanceForRentExemption(
             MintLayout.span,
           ),
         programId: TOKEN_PROGRAM_ID,
@@ -135,18 +136,18 @@ const CandyMachine = ({ walletAddress }) => {
       ),
     ];
   
-    if (candyMachine.state.gatekeeper) {
+    if (CandyMachine.state.gatekeeper) {
       remainingAccounts.push({
         pubkey: (
           await getNetworkToken(
             walletAddress.publicKey,
-            candyMachine.state.gatekeeper.gatekeeperNetwork,
+            CandyMachine.state.gatekeeper.gatekeeperNetwork,
           )
         )[0],
         isWritable: true,
         isSigner: false,
       });
-      if (candyMachine.state.gatekeeper.expireOnUse) {
+      if (CandyMachine.state.gatekeeper.expireOnUse) {
         remainingAccounts.push({
           pubkey: CIVIC,
           isWritable: false,
@@ -155,7 +156,7 @@ const CandyMachine = ({ walletAddress }) => {
         remainingAccounts.push({
           pubkey: (
             await getNetworkExpire(
-              candyMachine.state.gatekeeper.gatekeeperNetwork,
+              CandyMachine.state.gatekeeper.gatekeeperNetwork,
             )
           )[0],
           isWritable: false,
@@ -163,9 +164,9 @@ const CandyMachine = ({ walletAddress }) => {
         });
       }
     }
-    if (candyMachine.state.whitelistMintSettings) {
+    if (CandyMachine.state.whitelistMintSettings) {
       const mint = new web3.PublicKey(
-        candyMachine.state.whitelistMintSettings.mint,
+        CandyMachine.state.whitelistMintSettings.mint,
       );
   
       const whitelistToken = (await getAtaForMint(mint, walletAddress.publicKey))[0];
@@ -175,7 +176,7 @@ const CandyMachine = ({ walletAddress }) => {
         isSigner: false,
       });
   
-      if (candyMachine.state.whitelistMintSettings.mode.burnEveryTime) {
+      if (CandyMachine.state.whitelistMintSettings.mode.burnEveryTime) {
         const whitelistBurnAuthority = web3.Keypair.generate();
   
         remainingAccounts.push({
@@ -190,7 +191,7 @@ const CandyMachine = ({ walletAddress }) => {
         });
         signers.push(whitelistBurnAuthority);
         const exists =
-          await candyMachine.program.provider.connection.getAccountInfo(
+          await CandyMachine.program.provider.connection.getAccountInfo(
             whitelistToken,
           );
         if (exists) {
@@ -216,7 +217,7 @@ const CandyMachine = ({ walletAddress }) => {
       }
     }
   
-    if (candyMachine.state.tokenMint) {
+    if (CandyMachine.state.tokenMint) {
       const transferAuthority = web3.Keypair.generate();
   
       signers.push(transferAuthority);
@@ -238,7 +239,7 @@ const CandyMachine = ({ walletAddress }) => {
           transferAuthority.publicKey,
           walletAddress.publicKey,
           [],
-          candyMachine.state.price.toNumber(),
+          CandyMachine.state.price.toNumber(),
         ),
       );
       cleanupInstructions.push(
@@ -258,12 +259,12 @@ const CandyMachine = ({ walletAddress }) => {
     );
   
     instructions.push(
-      await candyMachine.program.instruction.mintNft(creatorBump, {
+      await CandyMachine.program.instruction.mintNft(creatorBump, {
         accounts: {
           candyMachine: candyMachineAddress,
           candyMachineCreator,
           payer: walletAddress.publicKey,
-          wallet: candyMachine.state.treasury,
+          wallet: CandyMachine.state.treasury,
           mint: mint.publicKey,
           metadata: metadataAddress,
           masterEdition,
@@ -285,8 +286,8 @@ const CandyMachine = ({ walletAddress }) => {
     try {
       return (
         await sendTransactions(
-          candyMachine.program.provider.connection,
-          candyMachine.program.provider.wallet,
+          CandyMachine.program.provider.connection,
+          CandyMachine.program.provider.wallet,
           [instructions, cleanupInstructions],
           [signers, []],
         )
@@ -294,17 +295,109 @@ const CandyMachine = ({ walletAddress }) => {
     } catch (e) {
       console.log(e);
     }
+
     return [];
   };
 
+  const getProvider = () => {
+    const rpcHost = process.env.REACT_APP_SOLANA_RPC_HOST;
+    // Create a new connection object
+    const connection = new Connection(rpcHost);
+    
+    // Create a new Solana provider object
+    const provider = new Provider(
+      connection,
+      window.solana,
+      opts.preflightCommitment
+    );
+  
+    return provider;
+  };
+
+  const getCandyMachineState = async () => {
+    const provider = getProvider();
+    
+    // Get metadata about your deployed candy machine program
+    const idl = await Program.fetchIdl(candyMachineProgram, provider);
+  
+    // Create a program that you can call
+    const program = new Program(idl, candyMachineProgram, provider);
+  
+    // Fetch the metadata from your candy machine
+    const candyMachine = await program.account.candyMachine.fetch(
+      process.env.REACT_APP_CANDY_MACHINE_ID
+    );
+    
+    // Parse out all our metadata and log it out
+    const itemsAvailable = candyMachine.data.itemsAvailable.toNumber();
+    const itemsRedeemed = candyMachine.itemsRedeemed.toNumber();
+    const itemsRemaining = itemsAvailable - itemsRedeemed;
+    const goLiveData = candyMachine.data.goLiveDate.toNumber();
+    const presale =
+      candyMachine.data.whitelistMintSettings &&
+      candyMachine.data.whitelistMintSettings.presale &&
+      (!candyMachine.data.goLiveDate ||
+        candyMachine.data.goLiveDate.toNumber() > new Date().getTime() / 1000);
+    
+    // We will be using this later in our UI so let's generate this now
+    const goLiveDateTimeString = `${new Date(
+      goLiveData * 1000
+    ).toGMTString()}`
+
+    setCandyMachine({
+      id: process.env.REACT_APP_CANDY_MACHINE_ID,
+      program,
+      state: {
+        itemsAvailable,
+        itemsRedeemed,
+        itemsRemaining,
+        goLiveData,
+        goLiveDateTimeString,
+        isSoldOut: itemsRemaining === 0,
+        isActive:
+          (presale ||
+            candyMachine.data.goLiveDate.toNumber() < new Date().getTime() / 1000) &&
+          (candyMachine.endSettings
+            ? candyMachine.endSettings.endSettingType.date
+              ? candyMachine.endSettings.number.toNumber() > new Date().getTime() / 1000
+              : itemsRedeemed < candyMachine.endSettings.number.toNumber()
+            : true),
+        isPresale: presale,
+        goLiveDate: candyMachine.data.goLiveDate,
+        treasury: candyMachine.wallet,
+        tokenMint: candyMachine.tokenMint,
+        gatekeeper: candyMachine.data.gatekeeper,
+        endSettings: candyMachine.data.endSettings,
+        whitelistMintSettings: candyMachine.data.whitelistMintSettings,
+        hiddenSettings: candyMachine.data.hiddenSettings,
+        price: candyMachine.data.price,
+      },
+    });
+  
+    console.log({
+      itemsAvailable,
+      itemsRedeemed,
+      itemsRemaining,
+      goLiveData,
+      goLiveDateTimeString,
+      presale,
+    });
+  };
+
+  useEffect(() => {
+    getCandyMachineState();
+  }, []);	
+
   return (
-    <div className="machine-container">
-      <p>Drop Date:</p>
-      <p>Items Minted:</p>
-      <button className="cta-button mint-button" onClick={mintToken}>
-        Mint NFT
-      </button>
-    </div>
+    candyMachine && (
+      <div className="machine-container">
+        <p>{`Drop Date: ${candyMachine.state.goLiveDateTimeString}`}</p>
+        <p>{`Items Minted: ${candyMachine.state.itemsRedeemed} / ${candyMachine.state.itemsAvailable}`}</p>
+        <button className="cta-button mint-button" onClick={mintToken}>
+            Mint NFT
+        </button>
+      </div>
+    )
   );
 };
 
