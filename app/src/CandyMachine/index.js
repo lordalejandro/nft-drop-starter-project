@@ -299,6 +299,10 @@ const CandyMachine = ({ walletAddress }) => {
     return [];
   };
 
+  useEffect(() => {
+    getCandyMachineState();
+  }, []);
+
   const getProvider = () => {
     const rpcHost = process.env.REACT_APP_SOLANA_RPC_HOST;
     // Create a new connection object
@@ -336,8 +340,7 @@ const CandyMachine = ({ walletAddress }) => {
     const presale =
       candyMachine.data.whitelistMintSettings &&
       candyMachine.data.whitelistMintSettings.presale &&
-      (!candyMachine.data.goLiveDate ||
-        candyMachine.data.goLiveDate.toNumber() > new Date().getTime() / 1000);
+      (!candyMachine.data.goLiveDate || candyMachine.data.goLiveDate.toNumber() > new Date().getTime() / 1000);
     
     // We will be using this later in our UI so let's generate this now
     const goLiveDateTimeString = `${new Date(
@@ -383,11 +386,7 @@ const CandyMachine = ({ walletAddress }) => {
       presale,
     });
   };
-
-  useEffect(() => {
-    getCandyMachineState();
-  }, []);	
-
+  
   return (
     candyMachine && (
       <div className="machine-container">
