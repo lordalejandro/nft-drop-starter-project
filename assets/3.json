@@ -1,0 +1,19 @@
+{
+    "name": "SHOW_GIRLS",
+    "symbol": "P-4",
+    "image": "3.png",
+    "properties": {
+      "files": [
+        {
+          "uri": "3.png",
+          "type": "image/png"
+        }
+      ],
+      "creators": [
+        {
+          "address": "4FGVxadcb6FqbsSwDHoLW3oaFDr4mYbF7RzdhTJBA6as",
+          "share": 100
+        }
+      ]
+    }
+  }
